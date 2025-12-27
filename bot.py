@@ -81,7 +81,7 @@ async def handle_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         member = await context.bot.get_chat_member(CHANNEL_ID, user_id)
         if member.status not in ("member", "administrator", "creator"):
             return
-    except
+    except:
         return
 
     # Abusive word check (AUTO BLOCK)
