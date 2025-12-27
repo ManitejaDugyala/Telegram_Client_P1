@@ -1,0 +1,20 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.env/
+
+# Database files
+*.db
+
+# JSON runtime files
+blocked.json
+
+# Logs (if any)
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
