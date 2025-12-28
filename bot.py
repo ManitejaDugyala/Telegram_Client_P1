@@ -1,3 +1,9 @@
+from dotenv import load_dotenv
+load_dotenv()
+
+import os
+import telebot
+
 import sqlite3
 from telegram import Update
 from telegram.ext import (
@@ -6,9 +12,12 @@ from telegram.ext import (
     ContextTypes,
     filters
 )
+# IMAGE SUPPORT TEST
 
 # ========= CONFIG =========
+# BOT_TOKEN = os.getenv("BOT_TOKEN")
 BOT_TOKEN = "7676245660:AAGjvoKAYxHWrfm7lxjereGnfcLfoCBFdLw"
+bot = telebot.TeleBot(BOT_TOKEN)
 CHANNEL_ID = -1002083788429
 ADMIN_ID = 8595659152
 # ==========================
@@ -19,6 +28,7 @@ Predictions & calculations only — no guarantees, no 100/100, no fixed reports.
 This is not a money-printing machine. Results depend on your entry, exit, and discipline.
 Only join if you can trade responsibly, stay in control, and accept risk.
 If you’re looking for shortcuts or “sure shots”, this place isn’t for you."""
+user_message_map = {}  # forwarded_message_id -> user_id
 
 # Add abusive words here (lowercase)
 BANNED_WORDS = {
@@ -41,6 +51,62 @@ BANNED_WORDS = {
     "bulle",
     "sakkaga puttinodu"
 }
+@bot.message_handler(content_types=['text'])
+def user_text(message):
+    if message.chat.id == ADMIN_ID:
+        return
+
+    forwarded = bot.send_message(
+        ADMIN_ID,
+        f"👤 User ID: {message.chat.id}\n\n{message.text}"
+    )
+
+    user_message_map[forwarded.message_id] = message.chat.id
+
+
+@bot.message_handler(content_types=['photo'])
+def user_photo(message):
+    if message.chat.id == ADMIN_ID:
+        return
+
+    file_id = message.photo[-1].file_id
+    caption = message.caption if message.caption else ""
+
+    forwarded = bot.send_photo(
+        ADMIN_ID,
+        file_id,
+        caption=f"👤 User ID: {message.chat.id}\n\n{caption}"
+    )
+
+    user_message_map[forwarded.message_id] = message.chat.id
+
+
+@bot.message_handler(
+    content_types=['text'],
+    func=lambda msg: msg.chat.id == ADMIN_ID and msg.reply_to_message is not None
+)
+def admin_reply_text(message):
+    replied_id = message.reply_to_message.message_id
+
+    if replied_id in user_message_map:
+        user_id = user_message_map[replied_id]
+        bot.send_message(user_id, message.text)
+
+@bot.message_handler(
+    content_types=['photo'],
+    func=lambda msg: msg.chat.id == ADMIN_ID and msg.reply_to_message is not None
+)
+def admin_reply_photo(message):
+    replied_id = message.reply_to_message.message_id
+
+    if replied_id in user_message_map:
+        user_id = user_message_map[replied_id]
+        file_id = message.photo[-1].file_id
+        caption = message.caption if message.caption else ""
+
+        bot.send_photo(user_id, file_id, caption)
+
+
 
 # ---------- DATABASE ----------
 conn = sqlite3.connect("blocked_users.db", check_same_thread=False)
