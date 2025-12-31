@@ -1,10 +1,19 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
+import asyncio
 import sqlite3
 import os
+
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    MessageHandler,
+    ContextTypes,
+    filters
+)
+from telegram.request import HTTPXRequest
+from telegram.error import TimedOut, NetworkError
 
 # ========= CONFIG =========
 BOT_TOKEN = "7676245660:AAGjvoKAYxHWrfm7lxjereGnfcLfoCBFdLw"
@@ -65,10 +74,10 @@ async def handle_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         member = await context.bot.get_chat_member(CHANNEL_ID, user_id)
         if member.status not in ("member", "administrator", "creator"):
             return
-    except:
+    except (TimedOut, NetworkError):
         return
 
-    # Foul word detection → auto block
+    # Foul words → auto block
     for word in BANNED_WORDS:
         if word in text:
             block_user(user_id)
@@ -76,17 +85,26 @@ async def handle_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Auto reply for "paid"
     if text.strip() == "paid":
-        await update.message.reply_text(PAID_AUTO_REPLY)
+        try:
+            await update.message.reply_text(PAID_AUTO_REPLY)
+        except TimedOut:
+            pass
 
-    # ---- TEXT ----
-    if update.message.text:
-        forwarded = await update.message.forward(chat_id=ADMIN_ID)
-        user_map[forwarded.message_id] = user_id
+    # Forward TEXT
+    try:
+        if update.message.text:
+            fwd = await update.message.forward(chat_id=ADMIN_ID)
+            user_map[fwd.message_id] = user_id
 
-    # ---- PHOTO ----
-    if update.message.photo:
-        forwarded = await update.message.forward(chat_id=ADMIN_ID)
-        user_map[forwarded.message_id] = user_id
+        # Forward PHOTO
+        if update.message.photo:
+            fwd = await update.message.forward(chat_id=ADMIN_ID)
+            user_map[fwd.message_id] = user_id
+
+        await asyncio.sleep(0.3)
+
+    except TimedOut:
+        pass
 
 # ---------- ADMIN → USER ----------
 async def handle_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -112,25 +130,44 @@ async def handle_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         unblock_user(target_user)
         return
 
-    # ---- TEXT ----
-    if update.message.text:
-        await context.bot.send_message(target_user, update.message.text)
+    try:
+        # Send TEXT
+        if update.message.text:
+            await context.bot.send_message(
+                chat_id=target_user,
+                text=update.message.text
+            )
 
-    # ---- PHOTO ----
-    if update.message.photo:
-        photo = update.message.photo[-1]
-        caption = update.message.caption or ""
-        await context.bot.send_photo(
-            target_user,
-            photo.file_id,
-            caption
-        )
+        # Send PHOTO
+        if update.message.photo:
+            photo = update.message.photo[-1]
+            caption = update.message.caption or ""
+            await context.bot.send_photo(
+                chat_id=target_user,
+                photo=photo.file_id,
+                caption=caption
+            )
+
+        await asyncio.sleep(0.3)
+
+    except TimedOut:
+        pass
 
 # ---------- MAIN ----------
-app = ApplicationBuilder().token(BOT_TOKEN).build()
+request = HTTPXRequest(
+    connect_timeout=30,
+    read_timeout=30,
+    write_timeout=30,
+    pool_timeout=30,
+)
+
+app = ApplicationBuilder() \
+    .token(BOT_TOKEN) \
+    .request(request) \
+    .build()
 
 app.add_handler(MessageHandler(~filters.User(ADMIN_ID), handle_user))
 app.add_handler(MessageHandler(filters.User(ADMIN_ID), handle_admin))
 
-print("Bot running...")
-app.run_polling()
+print("Bot running (Railway safe)...")
+app.run_polling(drop_pending_updates=True)
