@@ -1,20 +1,7 @@
-# Python cache
-__pycache__/
-*.pyc
-
-# Virtual environment
+.env
+temp.env
 venv/
-.env/
-
-# Database files
-*.db
-
-# JSON runtime files
+__pycache__/
+blocked_users.db
+bot.db
 blocked.json
-
-# Logs (if any)
-*.log
-
-# OS files
-.DS_Store
-Thumbs.db
