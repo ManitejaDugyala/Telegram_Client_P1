@@ -15,7 +15,7 @@ from telegram.ext import (
 )
 
 # ========= CONFIG =========
-BOT_TOKEN = "7676245660:AAGjvoKAYxHWrfm7lxjereGnfcLfoCBFdLw"
+BOT_TOKEN = "8864971969:AAHp6PTrFIyXWZTkN6Uhh6-Cn46KRKZGMDs"
 CHANNEL_ID = -1002083788429 
 ADMIN_ID = 8595659152
 
